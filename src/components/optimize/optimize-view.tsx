@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import { MAX_GRID_AXES, MAX_GRID_COMBOS, OPTIMIZE_METRICS, type OptimizeMetric, 
 import type { OptimizeEvent } from "@/lib/backtest/optimize-events";
 import { readNdjson } from "@/lib/ndjson";
 import { strategies as builtin } from "@/lib/strategies";
-import { fmtNum, fmtPct } from "@/lib/format";
+import { fmtNum, fmtPct, todayIsoDate } from "@/lib/format";
 
 interface Choice {
   id: string;
@@ -68,12 +68,6 @@ export function OptimizeView() {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [output, setOutput] = useState<Extract<OptimizeEvent, { type: "result" }> | null>(null);
-
-  // The default end date is set on the client to avoid a server/client mismatch.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only value, avoids a hydration mismatch
-    setEnd(new Date().toISOString().slice(0, 10));
-  }, []);
 
   const strategy = choices.find((c) => c.id === strategyId) ?? choices[0];
 
@@ -132,7 +126,7 @@ export function OptimizeView() {
     const body = {
       symbol: symbol.trim().toUpperCase(),
       start,
-      end,
+      end: end || todayIsoDate(),
       capital,
       commissionBps,
       slippageBps,
@@ -183,7 +177,7 @@ export function OptimizeView() {
               <Field label="Symbol"><Input value={symbol} onChange={(e) => setSymbol(e.target.value)} /></Field>
               <Field label="Capital"><Input type="number" value={capital} onChange={(e) => setCapital(Number(e.target.value))} /></Field>
               <Field label="Start"><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
-              <Field label="End"><Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></Field>
+              <Field label="End (blank = today)"><Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></Field>
               <Field label="Commission bps"><Input type="number" value={commissionBps} onChange={(e) => setCommissionBps(Number(e.target.value))} /></Field>
               <Field label="Slippage bps"><Input type="number" value={slippageBps} onChange={(e) => setSlippageBps(Number(e.target.value))} /></Field>
               <Field label="Risk-free %"><Input type="number" value={riskFreeRatePct} onChange={(e) => setRiskFreeRatePct(Number(e.target.value))} /></Field>

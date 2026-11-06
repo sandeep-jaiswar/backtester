@@ -64,24 +64,49 @@ async function participantCsv(urls: string[], label: string, tradeDate: Date): P
   throw new NseError(`No ${label} data available for ${fmtDMonY(tradeDate)}`, 404);
 }
 
+/** Fields read from NSE's option-chain-v3 payload. Other fields in the response are ignored. */
+interface OptionSide {
+  openInterest?: number;
+  changeinOpenInterest?: number;
+  totalTradedVolume?: number;
+  impliedVolatility?: number;
+  lastPrice?: number;
+  change?: number;
+  buyQuantity1?: number;
+  buyPrice1?: number;
+  sellPrice1?: number;
+  sellQuantity1?: number;
+}
+
+interface OptionChainRecord {
+  expiryDates?: string;
+  strikePrice?: number;
+  CE?: OptionSide;
+  PE?: OptionSide;
+}
+
+interface OptionChainPayload {
+  records?: { timestamp?: string; data?: OptionChainRecord[] };
+}
+
 /** nselib get_nse_option_chain: index symbols use type=Indices, everything else type=Equity. */
-async function optionChainPayload(symbol: string, expiry: string): Promise<Record<string, any>> {
+async function optionChainPayload(symbol: string, expiry: string): Promise<OptionChainPayload> {
   const isIndex = OPTION_INDICES.some((x) => symbol.includes(x));
   const url = `https://www.nseindia.com/api/option-chain-v3?type=${isIndex ? "Indices" : "Equity"}&symbol=${symbol}&expiry=${expiry}`;
-  return fetchJson<Record<string, any>>(url, "https://www.nseindia.com/option-chain");
+  return fetchJson<OptionChainPayload>(url, "https://www.nseindia.com/option-chain");
 }
 
 /**
  * nselib nse_live_option_chain row builder. Missing sides are zero, as in nselib.
  * NOTE: nselib sends the literal "None" in the expiry parameter when no expiry is given. This keeps that.
  */
-export function buildOptionChainRows(payload: Record<string, any>, expiryFmt: string | null, oiMode: string): Row[] {
+export function buildOptionChainRows(payload: OptionChainPayload, expiryFmt: string | null, oiMode: string): Row[] {
   const n = (v: unknown) => (typeof v === "number" ? v : 0);
   const rows: Row[] = [];
-  for (const rec of (payload.records?.data ?? []) as Array<Record<string, any>>) {
+  for (const rec of payload.records?.data ?? []) {
     if (expiryFmt && rec.expiryDates !== expiryFmt) continue;
-    const ce = rec.CE ?? {};
-    const pe = rec.PE ?? {};
+    const ce: OptionSide = rec.CE ?? {};
+    const pe: OptionSide = rec.PE ?? {};
     const full = oiMode === "full";
     rows.push({
       Fetch_Time: null,

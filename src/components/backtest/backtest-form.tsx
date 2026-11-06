@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Flash, Search, Scale } from "@heroui/shared-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { strategies } from "@/lib/strategies";
 import type { BacktestRequestBody } from "./use-backtest-stream";
 import { useCustomStrategies } from "@/components/strategies/use-custom-strategies";
 import { BENCHMARK_STRATEGY_ID, DEFAULT_BACKTEST } from "@/lib/backtest/config";
+import { todayIsoDate } from "@/lib/format";
 
 // Buy & hold is always run as the benchmark, so it is not user-selectable.
 const builtinSelectable = strategies.filter((s) => s.id !== BENCHMARK_STRATEGY_ID);
@@ -60,11 +61,6 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
   );
   const [params, setParams] = useState(defaultParams);
 
-  // Set the default end date on the client to avoid a server/client hydration mismatch.
-  useEffect(() => {
-    setEnd(new Date().toISOString().slice(0, 10));
-  }, []);
-
   const selectedCount = useMemo(() => Object.values(enabled).filter(Boolean).length, [enabled]);
 
   const setParam = (strategyId: string, key: string, value: number) =>
@@ -81,7 +77,7 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
     onRun({
       symbol: symbol.trim().toUpperCase(),
       start,
-      end,
+      end: end || todayIsoDate(),
       capital,
       commissionBps,
       slippageBps,
@@ -116,8 +112,8 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
               <Input id="start" type="date" value={start} onChange={(e) => setStart(e.target.value)} required />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="end">End</Label>
-              <Input id="end" type="date" value={end} onChange={(e) => setEnd(e.target.value)} required />
+              <Label htmlFor="end">End (blank = today)</Label>
+              <Input id="end" type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

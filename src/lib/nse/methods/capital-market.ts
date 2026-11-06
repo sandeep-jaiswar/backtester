@@ -3,7 +3,7 @@
  * Each export mirrors one nselib function: same URL, same origin header, same column handling.
  * Deviations from nselib are marked with "NOTE:".
  */
-import { fetchFile, fetchJson, fetchText, nseFetch, NseError } from "../core/http";
+import { fetchFile, fetchJson, fetchText, NseError } from "../core/http";
 import { parseCsv, type Row } from "../core/csv";
 import {
   cleaningColumnName,
