@@ -6,13 +6,15 @@ import { BENCHMARK_INDEX, type BacktestEvent } from "@/lib/backtest/stream-event
 import { BENCHMARK_STRATEGY_ID } from "@/lib/backtest/config";
 import { costModelFor, defaultCostProfileFor } from "@/lib/backtest/costs";
 import { buildManifest, hashBars } from "@/lib/backtest/manifest";
-import { getStrategy, resolveParams } from "@/lib/strategies";
+import { resolveParams } from "@/lib/strategies";
+import { resolveStrategies, resolveStrategy } from "@/lib/strategies/resolve";
+import { isDbConfigured } from "@/lib/db/client";
+import { saveRun, type StoredRunInput } from "@/lib/db/runs";
 import type { Strategy, BacktestConfig } from "@/lib/backtest/types";
-import { isDbConfigured, saveRun, type StoredRunInput } from "@/lib/db/runs";
 
 /**
  * Saves a finished run when a database is configured. A failure is logged and never fails the
- * backtest: the client already has its result, and the run can be recomputed from its manifest.
+ * backtest: the client still gets its result.
  */
 async function persist(run: StoredRunInput): Promise<void> {
   if (!isDbConfigured()) return;
@@ -28,7 +30,8 @@ async function persist(run: StoredRunInput): Promise<void> {
  *
  * Fetches daily bars once (cached per server instance), then runs every requested strategy
  * concurrently and streams each result as NDJSON the moment it finishes. Buy & hold is always
- * included as the benchmark. Every result carries a manifest that reproduces it.
+ * included as the benchmark. Every result carries a manifest that reproduces it, and is saved
+ * to the run history when a database is configured.
  */
 export async function POST(req: Request) {
   let body: unknown;
@@ -44,10 +47,16 @@ export async function POST(req: Request) {
   }
   const input = parsed.data;
 
-  const resolved = input.runs.map((run) => ({ run, strategy: getStrategy(run.strategyId) }));
-  const unknown = resolved.find((r) => !r.strategy);
-  if (unknown) {
-    return Response.json({ error: `Unknown strategy: ${unknown.run.strategyId}` }, { status: 400 });
+  let resolved: { run: (typeof input.runs)[number]; strategy: Strategy }[];
+  try {
+    const { strategies, unknown } = await resolveStrategies(input.runs.map((r) => r.strategyId));
+    if (unknown) {
+      return Response.json({ error: `Unknown strategy: ${unknown}` }, { status: 400 });
+    }
+    resolved = input.runs.map((run) => ({ run, strategy: strategies.get(run.strategyId)! }));
+  } catch (err) {
+    console.error("Failed to load strategies", err);
+    return Response.json({ error: "Could not load the strategy. Try again." }, { status: 502 });
   }
 
   const costProfile = input.costProfile ?? defaultCostProfileFor(input.symbol);
@@ -89,11 +98,7 @@ export async function POST(req: Request) {
           datasetHash,
         });
 
-        const runOne = async (
-          index: number,
-          strategy: Strategy,
-          rawParams: Record<string, number>,
-        ) => {
+        const runOne = async (index: number, strategy: Strategy, rawParams: Record<string, number>) => {
           // Yield to the event loop so every run starts before any finishes its CPU work.
           await new Promise((resolve) => setTimeout(resolve, 0));
           const t0 = Date.now();
@@ -112,12 +117,15 @@ export async function POST(req: Request) {
               slippageBps: input.slippageBps,
               riskFreeRatePct: input.riskFreeRatePct,
               strategyId: strategy.id,
+              strategyDefinitionHash: strategy.definitionHash,
               params,
             });
             const metrics = computeMetrics(result, bars.map((b) => b.date), {
               riskFreeRatePct: input.riskFreeRatePct,
             });
             const equity = result.equity.map((v) => Math.round(v * 100) / 100);
+            // Save before sending, so the run link on the card is valid as soon as it appears.
+            await persist({ manifest, strategyName: strategy.name, metrics, trades: result.trades, dates, equity });
             send({
               type: "result",
               index,
@@ -130,7 +138,6 @@ export async function POST(req: Request) {
               durationMs: Date.now() - t0,
               manifest,
             });
-            await persist({ manifest, strategyName: strategy.name, metrics, trades: result.trades, equity });
           } catch (err) {
             send({
               type: "error",
@@ -140,10 +147,10 @@ export async function POST(req: Request) {
           }
         };
 
-        const benchmark = getStrategy(BENCHMARK_STRATEGY_ID)!;
+        const benchmark = (await resolveStrategy(BENCHMARK_STRATEGY_ID))!;
         await Promise.all([
           runOne(BENCHMARK_INDEX, benchmark, {}),
-          ...resolved.map(({ run, strategy }, i) => runOne(i, strategy!, run.params)),
+          ...resolved.map(({ run, strategy }, i) => runOne(i, strategy, run.params)),
         ]);
 
         send({ type: "done", elapsedMs: Date.now() - started });

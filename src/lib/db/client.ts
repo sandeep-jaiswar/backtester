@@ -16,3 +16,14 @@ export function getDb(): Sql | null {
   sql ??= neon(url, { fullResults: false }) as unknown as Sql;
   return sql;
 }
+
+export function isDbConfigured(): boolean {
+  return getDb() !== null;
+}
+
+/** Throws a clear error when a database call is made without DATABASE_URL. */
+export function requireDb(): Sql {
+  const sql = getDb();
+  if (!sql) throw new Error("DATABASE_URL is not set");
+  return sql;
+}

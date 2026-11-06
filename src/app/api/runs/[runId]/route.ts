@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getRun, isDbConfigured } from "@/lib/db/runs";
+import { getRun } from "@/lib/db/runs";
+import { isDbConfigured } from "@/lib/db/client";
 
 type Ctx = { params: Promise<{ runId: string }> };
 

@@ -33,6 +33,8 @@ export interface Strategy {
   description: string;
   params: ParamSpec[];
   signals(bars: Bar[], params: Record<string, number>): boolean[];
+  /** Hash of the rule definition, for custom strategies. Built-in strategies leave it unset. */
+  definitionHash?: string;
 }
 
 /**

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Activity } from "@heroui/shared-icons";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,6 +78,13 @@ export function StrategyCard({ name, description, result, error, benchmark, sele
               <Stat label="Fees paid" value={fmtMoney(m.totalFeesPaid, currency)} />
               <Stat label="Time in market" value={`${fmtNum(m.exposurePct, 1)}%`} />
             </dl>
+            <Link
+              href={`/runs/${result!.manifest.runId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              Saved run {result!.manifest.runId}
+            </Link>
           </div>
         )}
       </CardContent>

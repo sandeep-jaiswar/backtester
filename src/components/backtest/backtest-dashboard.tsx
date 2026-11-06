@@ -111,7 +111,7 @@ export function BacktestDashboard() {
               return (
                 <StrategyCard
                   key={`${r.strategyId}-${i}`}
-                  name={def?.name ?? r.strategyId}
+                  name={state.results[i]?.strategyName ?? def?.name ?? r.strategyId}
                   description={def?.description}
                   result={state.results[i]}
                   error={state.runErrors[i]}

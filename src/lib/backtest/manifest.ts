@@ -14,6 +14,8 @@ export interface RunInputs {
   slippageBps: number;
   riskFreeRatePct: number;
   strategyId: string;
+  /** Hash of the rule definition for custom strategies. Absent for built-in strategies. */
+  strategyDefinitionHash?: string;
   params: Record<string, number>;
 }
 

@@ -9,16 +9,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { strategies } from "@/lib/strategies";
 import type { BacktestRequestBody } from "./use-backtest-stream";
+import { useCustomStrategies } from "@/components/strategies/use-custom-strategies";
 import { BENCHMARK_STRATEGY_ID, DEFAULT_BACKTEST } from "@/lib/backtest/config";
 
 // Buy & hold is always run as the benchmark, so it is not user-selectable.
-const selectable = strategies.filter((s) => s.id !== BENCHMARK_STRATEGY_ID);
+const builtinSelectable = strategies.filter((s) => s.id !== BENCHMARK_STRATEGY_ID);
+
+interface Selectable {
+  id: string;
+  name: string;
+  description: string;
+  params: { key: string; label: string; default: number; min: number; max: number; step: number }[];
+}
 
 type ParamValues = Record<string, number>;
 
 function defaultParams(): Record<string, ParamValues> {
   return Object.fromEntries(
-    selectable.map((s) => [s.id, Object.fromEntries(s.params.map((p) => [p.key, p.default]))]),
+    builtinSelectable.map((s) => [s.id, Object.fromEntries(s.params.map((p) => [p.key, p.default]))]),
   );
 }
 
@@ -29,6 +37,17 @@ interface Props {
 }
 
 export function BacktestForm({ running, onRun, onCancel }: Props) {
+  const custom = useCustomStrategies();
+  const selectable: Selectable[] = useMemo(
+    () => [
+      ...builtinSelectable,
+      ...custom.map((c) => ({ id: c.id, name: c.name, description: c.description, params: c.definition.params })),
+    ],
+    [custom],
+  );
+  const defaultsFor = (id: string): ParamValues =>
+    Object.fromEntries((selectable.find((s) => s.id === id)?.params ?? []).map((p) => [p.key, p.default]));
+
   const [symbol, setSymbol] = useState<string>(DEFAULT_BACKTEST.symbol);
   const [start, setStart] = useState<string>(DEFAULT_BACKTEST.startDate);
   const [end, setEnd] = useState("");
@@ -49,13 +68,16 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
   const selectedCount = useMemo(() => Object.values(enabled).filter(Boolean).length, [enabled]);
 
   const setParam = (strategyId: string, key: string, value: number) =>
-    setParams((prev) => ({ ...prev, [strategyId]: { ...prev[strategyId], [key]: value } }));
+    setParams((prev) => ({
+      ...prev,
+      [strategyId]: { ...(prev[strategyId] ?? defaultsFor(strategyId)), [key]: value },
+    }));
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const runs = selectable
       .filter((s) => enabled[s.id])
-      .map((s) => ({ strategyId: s.id, params: params[s.id] }));
+      .map((s) => ({ strategyId: s.id, params: params[s.id] ?? defaultsFor(s.id) }));
     onRun({
       symbol: symbol.trim().toUpperCase(),
       start,
@@ -153,7 +175,7 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
                         key={p.key}
                         id={`${s.id}-${p.key}`}
                         label={p.label}
-                        value={params[s.id][p.key]}
+                        value={params[s.id]?.[p.key] ?? p.default}
                         min={p.min}
                         max={p.max}
                         step={p.step}

@@ -89,3 +89,13 @@ export function priorLowest(bars: Bar[], lookback: number): number[] {
 export function closesOf(bars: Bar[]): number[] {
   return bars.map((b) => b.close);
 }
+
+/** Average true range: simple mean of true range over `period` bars. Causal: uses only bars up to i. */
+export function atr(bars: Bar[], period: number): number[] {
+  const tr = bars.map((b, i) =>
+    i === 0
+      ? b.high - b.low
+      : Math.max(b.high - b.low, Math.abs(b.high - bars[i - 1].close), Math.abs(b.low - bars[i - 1].close)),
+  );
+  return sma(tr, period);
+}

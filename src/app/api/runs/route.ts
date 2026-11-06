@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { isDbConfigured, listRuns } from "@/lib/db/runs";
+import { listRuns } from "@/lib/db/runs";
+import { isDbConfigured } from "@/lib/db/client";
 
 /** GET /api/runs?limit=50 — recent saved runs, newest first. */
 export async function GET(request: Request) {

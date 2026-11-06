@@ -1,5 +1,6 @@
 import "server-only";
-import { getDb } from "./client";
+import { requireDb } from "./client";
+import { ensureSchema } from "./schema";
 import type { RunManifest } from "../backtest/manifest";
 import type { Metrics, Trade } from "../backtest/types";
 
@@ -9,87 +10,35 @@ export interface StoredRunInput {
   strategyName: string;
   metrics: Metrics;
   trades: Trade[];
+  dates: string[];
   equity: number[];
 }
 
-export interface RunSummary {
-  runId: string;
-  createdAt: string;
-  symbol: string;
-  strategyId: string;
-  strategyName: string;
-  startDate: string;
-  endDate: string;
-  totalReturnPct: number;
-  sharpe: number;
-  maxDrawdownPct: number;
-  tradeCount: number;
-}
-
-export interface StoredRun extends RunSummary {
-  manifest: RunManifest;
-  metrics: Metrics;
-  trades: Trade[];
-  equity: number[];
-}
-
-let schemaReady: Promise<void> | null = null;
-
-/** Creates the table once per server instance. Retries on the next call if creation fails. */
-export function ensureSchema(): Promise<void> {
-  const sql = getDb();
-  if (!sql) return Promise.reject(new Error("DATABASE_URL is not set"));
-  schemaReady ??= (async () => {
-    await sql`
-      CREATE TABLE IF NOT EXISTS backtest_runs (
-        run_id         TEXT PRIMARY KEY,
-        created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-        symbol         TEXT NOT NULL,
-        strategy_id    TEXT NOT NULL,
-        strategy_name  TEXT NOT NULL,
-        start_date     DATE NOT NULL,
-        end_date       DATE NOT NULL,
-        engine_version TEXT NOT NULL,
-        manifest       JSONB NOT NULL,
-        metrics        JSONB NOT NULL,
-        trades         JSONB NOT NULL,
-        equity         JSONB NOT NULL
-      )`;
-    await sql`CREATE INDEX IF NOT EXISTS backtest_runs_created_idx ON backtest_runs (created_at DESC)`;
-  })().catch((err) => {
-    schemaReady = null;
-    throw err;
-  });
-  return schemaReady;
-}
-
-export function isDbConfigured(): boolean {
-  return getDb() !== null;
-}
+export type { RunSummary, StoredRun } from "../backtest/run-types";
+import type { RunSummary, StoredRun } from "../backtest/run-types";
 
 /** Saves a run. Returns true if it was inserted, false if an identical run was already stored. */
 export async function saveRun(run: StoredRunInput): Promise<boolean> {
-  const sql = getDb();
-  if (!sql) throw new Error("DATABASE_URL is not set");
+  const sql = requireDb();
   await ensureSchema();
   const m = run.manifest;
   const rows = await sql`
     INSERT INTO backtest_runs
       (run_id, symbol, strategy_id, strategy_name, start_date, end_date, engine_version,
-       manifest, metrics, trades, equity)
+       manifest, metrics, trades, equity, dates)
     VALUES
       (${m.runId}, ${m.symbol}, ${m.strategyId}, ${run.strategyName}, ${m.start}, ${m.end},
        ${m.engineVersion}, ${JSON.stringify(m)}::jsonb, ${JSON.stringify(run.metrics)}::jsonb,
-       ${JSON.stringify(run.trades)}::jsonb, ${JSON.stringify(run.equity)}::jsonb)
+       ${JSON.stringify(run.trades)}::jsonb, ${JSON.stringify(run.equity)}::jsonb,
+       ${JSON.stringify(run.dates)}::jsonb)
     ON CONFLICT (run_id) DO NOTHING
     RETURNING run_id`;
   return rows.length > 0;
 }
 
-/** Most recent runs first. Heavy columns (equity, trades) are left out of the listing. */
+/** Most recent runs first. Heavy columns (equity, trades, dates) are left out of the listing. */
 export async function listRuns(limit: number): Promise<RunSummary[]> {
-  const sql = getDb();
-  if (!sql) throw new Error("DATABASE_URL is not set");
+  const sql = requireDb();
   await ensureSchema();
   const rows = await sql`
     SELECT run_id, created_at, symbol, strategy_id, strategy_name, start_date, end_date,
@@ -116,12 +65,11 @@ export async function listRuns(limit: number): Promise<RunSummary[]> {
 }
 
 export async function getRun(runId: string): Promise<StoredRun | null> {
-  const sql = getDb();
-  if (!sql) throw new Error("DATABASE_URL is not set");
+  const sql = requireDb();
   await ensureSchema();
   const rows = await sql`
     SELECT run_id, created_at, symbol, strategy_id, strategy_name, start_date, end_date,
-           manifest, metrics, trades, equity
+           manifest, metrics, trades, equity, dates
     FROM backtest_runs WHERE run_id = ${runId}`;
   const r = rows[0];
   if (!r) return null;
@@ -141,12 +89,13 @@ export async function getRun(runId: string): Promise<StoredRun | null> {
     manifest: r.manifest as RunManifest,
     metrics,
     trades: r.trades as Trade[],
+    dates: (r.dates as string[] | null) ?? null,
     equity: r.equity as number[],
   };
 }
 
 /** The driver returns DATE columns as Date objects or strings depending on the runtime. Normalise to YYYY-MM-DD. */
-function toDateString(v: unknown): string {
+export function toDateString(v: unknown): string {
   if (v instanceof Date) return v.toISOString().slice(0, 10);
   return String(v).slice(0, 10);
 }
