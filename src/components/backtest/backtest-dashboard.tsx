@@ -7,6 +7,7 @@ import { StrategyCard } from "./strategy-card";
 import { TradesGrid } from "./trades-grid";
 import { useBacktestStream, type BacktestRequestBody } from "./use-backtest-stream";
 import { BENCHMARK_INDEX } from "@/lib/backtest/stream-events";
+import { BENCHMARK_STRATEGY_ID } from "@/lib/backtest/config";
 import { getStrategy } from "@/lib/strategies";
 import { drawdownSeries } from "@/lib/backtest/metrics";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +34,7 @@ export function BacktestDashboard() {
     const out: EquitySeries[] = [];
     const bench = state.results[BENCHMARK_INDEX];
     if (bench) {
-      out.push({ key: "benchmark", name: "Buy & Hold", color: "var(--muted-foreground)", values: bench.equity, dashed: true });
+      out.push({ key: "benchmark", name: bench.strategyName, color: "var(--muted-foreground)", values: bench.equity, dashed: true });
     }
     runs.forEach((_, i) => {
       const r = state.results[i];
@@ -97,7 +98,7 @@ export function BacktestDashboard() {
         {state.dates.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <StrategyCard
-              name="Buy & Hold"
+              name={getStrategy(BENCHMARK_STRATEGY_ID)?.name ?? "Benchmark"}
               description="Benchmark"
               benchmark
               result={state.results[BENCHMARK_INDEX]}

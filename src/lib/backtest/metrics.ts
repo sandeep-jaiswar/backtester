@@ -1,6 +1,7 @@
 import type { EngineResult, Metrics, Trade } from "./types";
+import { TRADING_DAYS_PER_YEAR } from "./config";
 
-const TRADING_DAYS = 252;
+const TRADING_DAYS = TRADING_DAYS_PER_YEAR;
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
 
 /** Computes summary statistics from an engine run. Returns are based on bar-close equity. */

@@ -9,9 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { strategies } from "@/lib/strategies";
 import type { BacktestRequestBody } from "./use-backtest-stream";
+import { BENCHMARK_STRATEGY_ID, DEFAULT_BACKTEST } from "@/lib/backtest/config";
 
 // Buy & hold is always run as the benchmark, so it is not user-selectable.
-const selectable = strategies.filter((s) => s.id !== "buy-and-hold");
+const selectable = strategies.filter((s) => s.id !== BENCHMARK_STRATEGY_ID);
 
 type ParamValues = Record<string, number>;
 
@@ -28,12 +29,12 @@ interface Props {
 }
 
 export function BacktestForm({ running, onRun, onCancel }: Props) {
-  const [symbol, setSymbol] = useState("AAPL");
-  const [start, setStart] = useState("2019-01-01");
+  const [symbol, setSymbol] = useState<string>(DEFAULT_BACKTEST.symbol);
+  const [start, setStart] = useState<string>(DEFAULT_BACKTEST.startDate);
   const [end, setEnd] = useState("");
-  const [capital, setCapital] = useState(100_000);
-  const [commissionBps, setCommissionBps] = useState(10);
-  const [slippageBps, setSlippageBps] = useState(5);
+  const [capital, setCapital] = useState<number>(DEFAULT_BACKTEST.capital);
+  const [commissionBps, setCommissionBps] = useState<number>(DEFAULT_BACKTEST.commissionBps);
+  const [slippageBps, setSlippageBps] = useState<number>(DEFAULT_BACKTEST.slippageBps);
   const [enabled, setEnabled] = useState<Record<string, boolean>>(
     Object.fromEntries(selectable.map((s) => [s.id, true])),
   );
@@ -81,7 +82,7 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
               id="symbol"
               value={symbol}
               onChange={(e) => setSymbol(e.target.value)}
-              placeholder="AAPL, RELIANCE.NS, ^NSEI"
+              placeholder="e.g. AAPL, RELIANCE.NS, ^NSEI"
               required
             />
           </div>

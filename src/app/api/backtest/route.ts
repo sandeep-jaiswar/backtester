@@ -3,6 +3,7 @@ import { runBacktest } from "@/lib/backtest/engine";
 import { computeMetrics } from "@/lib/backtest/metrics";
 import { requestSchema } from "@/lib/backtest/request";
 import { BENCHMARK_INDEX, type BacktestEvent } from "@/lib/backtest/stream-events";
+import { BENCHMARK_STRATEGY_ID } from "@/lib/backtest/config";
 import { getStrategy, resolveParams } from "@/lib/strategies";
 import type { Strategy, BacktestConfig } from "@/lib/backtest/types";
 
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
           }
         };
 
-        const benchmark = getStrategy("buy-and-hold")!;
+        const benchmark = getStrategy(BENCHMARK_STRATEGY_ID)!;
         await Promise.all([
           runOne(BENCHMARK_INDEX, benchmark, {}),
           ...resolved.map(({ run, strategy }, i) => runOne(i, strategy!, run.params)),

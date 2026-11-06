@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_BACKTEST, MAX_RUNS_PER_REQUEST } from "./config";
 
 // Yahoo symbols: letters, digits, dot, dash, caret, equals. e.g. AAPL, RELIANCE.NS, ^NSEI, BTC-USD
 const symbolPattern = /^[A-Z0-9.\-^=]{1,20}$/;
@@ -17,10 +18,10 @@ export const requestSchema = z
       .regex(symbolPattern, "Use a Yahoo Finance symbol such as AAPL or RELIANCE.NS"),
     start: z.iso.date(),
     end: z.iso.date(),
-    capital: z.number().positive().max(1e12).default(100_000),
-    commissionBps: z.number().min(0).max(500).default(10),
-    slippageBps: z.number().min(0).max(500).default(5),
-    runs: z.array(runSchema).min(1).max(10),
+    capital: z.number().positive().max(1e12).default(DEFAULT_BACKTEST.capital),
+    commissionBps: z.number().min(0).max(500).default(DEFAULT_BACKTEST.commissionBps),
+    slippageBps: z.number().min(0).max(500).default(DEFAULT_BACKTEST.slippageBps),
+    runs: z.array(runSchema).min(1).max(MAX_RUNS_PER_REQUEST),
   })
   .superRefine((v, ctx) => {
     if (v.start >= v.end) {
