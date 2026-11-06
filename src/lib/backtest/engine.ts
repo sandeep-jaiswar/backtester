@@ -1,11 +1,14 @@
-import type { Bar, BacktestConfig, EngineResult, Trade } from "./types";
+import type { Bar, BacktestConfig, CostModel, EngineResult, Trade } from "./types";
+import { flatCostModel } from "./costs";
 
 /**
  * Long-only, all-in / all-out execution engine.
  *
  * - A `true` signal at the close of bar i-1 means "be long": the engine buys at the open of bar i.
  * - A `false` signal means "be flat": the engine sells at the open of bar i.
- * - Fills include slippage and commission on both sides.
+ * - Fills include slippage. Fees come from the cost model, on both legs.
+ * - A buy spends all available cash: shares = cash / (fill × (1 + buy fee rate)).
+ * - Trade P&L is measured against the full cash spent on entry, including the buy fee.
  * - Equity is marked to each bar's close.
  * - Any position still open on the last bar is closed at that close and flagged `openAtEnd`.
  */
@@ -18,41 +21,54 @@ export function runBacktest(
     throw new Error("Signal length must match bar length");
   }
 
-  const comm = config.commissionBps / 10_000;
+  const cost: CostModel = config.costModel ?? flatCostModel(config.commissionBps);
   const slip = config.slippageBps / 10_000;
 
   let cash = config.initialCapital;
   let shares = 0;
-  let entry: { index: number; date: string; price: number; shares: number } | null = null;
+  let entry: {
+    index: number;
+    date: string;
+    price: number;
+    shares: number;
+    spent: number;
+    fees: number;
+  } | null = null;
 
   const equity: number[] = new Array(bars.length);
   const trades: Trade[] = [];
   let barsInMarket = 0;
+  let totalFees = 0;
 
   const openPosition = (i: number) => {
     const fill = bars[i].open * (1 + slip);
-    const budget = cash * (1 - comm);
-    shares = budget / fill;
-    entry = { index: i, date: iso(bars[i].date), price: fill, shares };
+    const bought = cash / (fill * (1 + cost.rateBuy));
+    const fee = bought * fill * cost.rateBuy;
+    shares = bought;
+    entry = { index: i, date: iso(bars[i].date), price: fill, shares, spent: cash, fees: fee };
+    totalFees += fee;
     cash = 0;
   };
 
   const closePosition = (i: number, price: number, openAtEnd: boolean) => {
     if (!entry) return;
-    const proceeds = shares * price * (1 - comm);
-    const cost = entry.shares * entry.price;
-    const pnl = proceeds - cost;
+    const notional = shares * price;
+    const fee = notional * cost.rateSell + cost.fixedPerSell;
+    const proceeds = notional - fee;
+    const tradeFees = entry.fees + fee;
     trades.push({
       entryDate: entry.date,
       entryPrice: round(entry.price),
       exitDate: iso(bars[i].date),
       exitPrice: round(price),
       shares: round(entry.shares, 4),
-      pnl: round(pnl),
-      returnPct: round((proceeds / cost - 1) * 100),
+      pnl: round(proceeds - entry.spent),
+      returnPct: round((proceeds / entry.spent - 1) * 100),
       barsHeld: i - entry.index,
+      fees: round(tradeFees),
       openAtEnd,
     });
+    totalFees += fee;
     cash = proceeds;
     shares = 0;
     entry = null;
@@ -74,11 +90,11 @@ export function runBacktest(
 
   if (shares > 0) {
     closePosition(bars.length - 1, bars[bars.length - 1].close, true);
-    // Re-mark the final equity point after the forced close (commission applied).
+    // Re-mark the final equity point after the forced close (fees applied).
     equity[bars.length - 1] = cash;
   }
 
-  return { equity, trades, barsInMarket };
+  return { equity, trades, barsInMarket, totalFees: round(totalFees) };
 }
 
 function iso(d: Date): string {

@@ -1,17 +1,20 @@
-import { DataError, fetchDailyBars } from "@/lib/market-data/yahoo";
+import { DataError, fetchDailyBarsCached } from "@/lib/market-data/yahoo";
 import { runBacktest } from "@/lib/backtest/engine";
 import { computeMetrics } from "@/lib/backtest/metrics";
 import { requestSchema } from "@/lib/backtest/request";
 import { BENCHMARK_INDEX, type BacktestEvent } from "@/lib/backtest/stream-events";
 import { BENCHMARK_STRATEGY_ID } from "@/lib/backtest/config";
+import { costModelFor, defaultCostProfileFor } from "@/lib/backtest/costs";
+import { buildManifest, hashBars } from "@/lib/backtest/manifest";
 import { getStrategy, resolveParams } from "@/lib/strategies";
 import type { Strategy, BacktestConfig } from "@/lib/backtest/types";
 
 /**
  * POST /api/backtest
  *
- * Fetches Yahoo Finance bars once, then runs every requested strategy concurrently and
- * streams each result as NDJSON the moment it finishes. Buy & hold is always included as the benchmark.
+ * Fetches daily bars once (cached per server instance), then runs every requested strategy
+ * concurrently and streams each result as NDJSON the moment it finishes. Buy & hold is always
+ * included as the benchmark. Every result carries a manifest that reproduces it.
  */
 export async function POST(req: Request) {
   let body: unknown;
@@ -33,10 +36,14 @@ export async function POST(req: Request) {
     return Response.json({ error: `Unknown strategy: ${unknown.run.strategyId}` }, { status: 400 });
   }
 
+  const costProfile = input.costProfile ?? defaultCostProfileFor(input.symbol);
+  const costModel = costModelFor(costProfile, input.commissionBps);
+
   const config: BacktestConfig = {
     initialCapital: input.capital,
     commissionBps: input.commissionBps,
     slippageBps: input.slippageBps,
+    costModel,
   };
 
   const encoder = new TextEncoder();
@@ -55,10 +62,18 @@ export async function POST(req: Request) {
       const started = Date.now();
 
       try {
-        const series = await fetchDailyBars(input.symbol, input.start, input.end);
+        const series = await fetchDailyBarsCached(input.symbol, input.start, input.end);
         const { bars } = series;
         const dates = bars.map((b) => b.date.toISOString().slice(0, 10));
-        send({ type: "data", symbol: series.symbol, currency: series.currency, dates, barCount: bars.length });
+        const datasetHash = hashBars(bars);
+        send({
+          type: "data",
+          symbol: series.symbol,
+          currency: series.currency,
+          dates,
+          barCount: bars.length,
+          datasetHash,
+        });
 
         const runOne = async (
           index: number,
@@ -72,16 +87,32 @@ export async function POST(req: Request) {
             const params = resolveParams(strategy, rawParams);
             const signals = strategy.signals(bars, params);
             const result = runBacktest(bars, signals, config);
+            const manifest = buildManifest({
+              symbol: series.symbol,
+              start: input.start,
+              end: input.end,
+              datasetHash,
+              capital: input.capital,
+              costProfile,
+              costModel,
+              slippageBps: input.slippageBps,
+              riskFreeRatePct: input.riskFreeRatePct,
+              strategyId: strategy.id,
+              params,
+            });
             send({
               type: "result",
               index,
               strategyId: strategy.id,
               strategyName: strategy.name,
               params,
-              metrics: computeMetrics(result, bars.map((b) => b.date)),
+              metrics: computeMetrics(result, bars.map((b) => b.date), {
+                riskFreeRatePct: input.riskFreeRatePct,
+              }),
               equity: result.equity.map((v) => Math.round(v * 100) / 100),
               trades: result.trades,
               durationMs: Date.now() - t0,
+              manifest,
             });
           } catch (err) {
             send({

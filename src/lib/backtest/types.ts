@@ -35,12 +35,24 @@ export interface Strategy {
   signals(bars: Bar[], params: Record<string, number>): boolean[];
 }
 
+/**
+ * Linear cost model. Fees are fractions of traded notional, plus an optional fixed fee per sell.
+ * Example: 10 bps commission = { rateBuy: 0.001, rateSell: 0.001, fixedPerSell: 0 }.
+ */
+export interface CostModel {
+  rateBuy: number;
+  rateSell: number;
+  fixedPerSell: number;
+}
+
 export interface BacktestConfig {
   initialCapital: number;
-  /** Broker commission per side, in basis points of traded value. */
+  /** Broker commission per side, in basis points of traded value. Used when `costModel` is absent. */
   commissionBps: number;
   /** Slippage per side, in basis points, applied against the trader. */
   slippageBps: number;
+  /** Explicit fee schedule. Overrides `commissionBps` when present. */
+  costModel?: CostModel;
 }
 
 export interface Trade {
@@ -52,6 +64,8 @@ export interface Trade {
   pnl: number;
   returnPct: number;
   barsHeld: number;
+  /** Total fees paid on both legs of the trade, in account currency. */
+  fees: number;
   /** True if the position was still open on the last bar and was marked to market. */
   openAtEnd: boolean;
 }
@@ -62,6 +76,8 @@ export interface EngineResult {
   trades: Trade[];
   /** Number of bars during which the portfolio held shares. */
   barsInMarket: number;
+  /** Sum of all fees across the run. */
+  totalFees: number;
 }
 
 export interface Metrics {
@@ -72,11 +88,15 @@ export interface Metrics {
   maxDrawdownPct: number;
   volatilityPct: number;
   sharpe: number;
+  /** Downside-risk-adjusted return. 0 when there are no down days. */
+  sortino: number;
   calmar: number;
   tradeCount: number;
   winRatePct: number;
   avgTradeReturnPct: number;
-  profitFactor: number;
+  /** Gross profit / gross loss. `null` when there are no losing trades (the ratio is unbounded). */
+  profitFactor: number | null;
+  totalFeesPaid: number;
   avgBarsHeld: number;
   exposurePct: number;
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DEFAULT_BACKTEST, MAX_RUNS_PER_REQUEST } from "./config";
+import { COST_PROFILES } from "./costs";
 
 // Yahoo symbols: letters, digits, dot, dash, caret, equals. e.g. AAPL, RELIANCE.NS, ^NSEI, BTC-USD
 const symbolPattern = /^[A-Z0-9.\-^=]{1,20}$/;
@@ -21,6 +22,9 @@ export const requestSchema = z
     capital: z.number().positive().max(1e12).default(DEFAULT_BACKTEST.capital),
     commissionBps: z.number().min(0).max(500).default(DEFAULT_BACKTEST.commissionBps),
     slippageBps: z.number().min(0).max(500).default(DEFAULT_BACKTEST.slippageBps),
+    /** Omit to pick by symbol: .NS and .BO get Indian delivery charges, everything else gets flat bps. */
+    costProfile: z.enum(COST_PROFILES).optional(),
+    riskFreeRatePct: z.number().min(0).max(50).default(DEFAULT_BACKTEST.riskFreeRatePct),
     runs: z.array(runSchema).min(1).max(MAX_RUNS_PER_REQUEST),
   })
   .superRefine((v, ctx) => {

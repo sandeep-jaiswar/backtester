@@ -4,8 +4,17 @@ import { TRADING_DAYS_PER_YEAR } from "./config";
 const TRADING_DAYS = TRADING_DAYS_PER_YEAR;
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
 
+export interface MetricOptions {
+  /** Annual risk-free rate in percent, e.g. 6.5 for 6.5%. Subtracted from daily returns for Sharpe and Sortino. */
+  riskFreeRatePct?: number;
+}
+
 /** Computes summary statistics from an engine run. Returns are based on bar-close equity. */
-export function computeMetrics(result: EngineResult, dates: Date[]): Metrics {
+export function computeMetrics(
+  result: EngineResult,
+  dates: Date[],
+  options: MetricOptions = {},
+): Metrics {
   const { equity, trades, barsInMarket } = result;
   const startValue = equity[0];
   const endValue = equity[equity.length - 1];
@@ -18,10 +27,18 @@ export function computeMetrics(result: EngineResult, dates: Date[]): Metrics {
   for (let i = 1; i < equity.length; i++) {
     dailyReturns.push(equity[i - 1] === 0 ? 0 : equity[i] / equity[i - 1] - 1);
   }
-  const mean = avg(dailyReturns);
-  const sd = stdev(dailyReturns, mean);
-  const volatility = sd * Math.sqrt(TRADING_DAYS);
-  const sharpe = sd > 0 ? (mean / sd) * Math.sqrt(TRADING_DAYS) : 0;
+  const volatility = stdev(dailyReturns, avg(dailyReturns)) * Math.sqrt(TRADING_DAYS);
+
+  // Excess return over the risk-free rate, per day.
+  const rfDaily = (options.riskFreeRatePct ?? 0) / 100 / TRADING_DAYS;
+  const excess = dailyReturns.map((r) => r - rfDaily);
+  const meanExcess = avg(excess);
+  const sd = stdev(excess, meanExcess);
+  const sharpe = sd > 0 ? (meanExcess / sd) * Math.sqrt(TRADING_DAYS) : 0;
+
+  // Sortino uses downside deviation over all observations, so up days dilute it like the standard definition.
+  const downsideDev = Math.sqrt(avg(excess.map((x) => Math.min(0, x) ** 2)));
+  const sortino = downsideDev > 0 ? (meanExcess / downsideDev) * Math.sqrt(TRADING_DAYS) : 0;
 
   const maxDd = maxDrawdown(equity);
   const calmar = maxDd < 0 ? cagr / Math.abs(maxDd) : 0;
@@ -34,8 +51,10 @@ export function computeMetrics(result: EngineResult, dates: Date[]): Metrics {
     maxDrawdownPct: round(maxDd * 100),
     volatilityPct: round(volatility * 100),
     sharpe: round(sharpe),
+    sortino: round(sortino),
     calmar: round(calmar),
     ...tradeStats(trades),
+    totalFeesPaid: round(sum(trades.map((t) => t.fees))),
     exposurePct: round((barsInMarket / equity.length) * 100),
   };
 }
@@ -54,11 +73,14 @@ function tradeStats(trades: Trade[]) {
   const wins = trades.filter((t) => t.pnl > 0);
   const grossWin = sum(wins.map((t) => t.pnl));
   const grossLoss = Math.abs(sum(trades.filter((t) => t.pnl < 0).map((t) => t.pnl)));
+  let profitFactor: number | null;
+  if (grossLoss > 0) profitFactor = round(grossWin / grossLoss);
+  else profitFactor = grossWin > 0 ? null : 0; // no losses: the ratio is unbounded, so report null
   return {
     tradeCount: count,
     winRatePct: round((wins.length / count) * 100),
     avgTradeReturnPct: round(avg(trades.map((t) => t.returnPct))),
-    profitFactor: grossLoss > 0 ? round(grossWin / grossLoss) : grossWin > 0 ? Infinity : 0,
+    profitFactor,
     avgBarsHeld: round(avg(trades.map((t) => t.barsHeld)), 1),
   };
 }

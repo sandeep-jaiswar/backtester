@@ -35,6 +35,7 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
   const [capital, setCapital] = useState<number>(DEFAULT_BACKTEST.capital);
   const [commissionBps, setCommissionBps] = useState<number>(DEFAULT_BACKTEST.commissionBps);
   const [slippageBps, setSlippageBps] = useState<number>(DEFAULT_BACKTEST.slippageBps);
+  const [costChoice, setCostChoice] = useState<"auto" | "flat" | "india-delivery">("auto");
   const [enabled, setEnabled] = useState<Record<string, boolean>>(
     Object.fromEntries(selectable.map((s) => [s.id, true])),
   );
@@ -62,6 +63,7 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
       capital,
       commissionBps,
       slippageBps,
+      costProfile: costChoice === "auto" ? undefined : costChoice,
       runs,
     });
   };
@@ -96,10 +98,23 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
               <Input id="end" type="date" value={end} onChange={(e) => setEnd(e.target.value)} required />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <NumberField id="capital" label="Capital" value={capital} onChange={setCapital} step={1000} />
             <NumberField id="commission" label="Commission bps" value={commissionBps} onChange={setCommissionBps} step={1} />
             <NumberField id="slippage" label="Slippage bps" value={slippageBps} onChange={setSlippageBps} step={1} />
+            <div className="grid gap-2">
+              <Label htmlFor="cost-profile">Cost profile</Label>
+              <select
+                id="cost-profile"
+                value={costChoice}
+                onChange={(e) => setCostChoice(e.target.value as typeof costChoice)}
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+              >
+                <option value="auto">Auto (by symbol)</option>
+                <option value="flat">Flat bps</option>
+                <option value="india-delivery">India delivery (NSE/BSE)</option>
+              </select>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -1,4 +1,5 @@
 import type { Metrics, Trade } from "./types";
+import type { RunManifest } from "./manifest";
 
 /**
  * Newline-delimited JSON events sent by POST /api/backtest.
@@ -14,6 +15,8 @@ export type BacktestEvent =
       currency: string;
       dates: string[];
       barCount: number;
+      /** SHA-256 of the bar series used by every run in this request. */
+      datasetHash: string;
     }
   | {
       type: "result";
@@ -26,6 +29,8 @@ export type BacktestEvent =
       equity: number[];
       trades: Trade[];
       durationMs: number;
+      /** Everything needed to reproduce this run. Same manifest, same result. */
+      manifest: RunManifest;
     }
   | { type: "error"; index?: number; message: string }
   | { type: "done"; elapsedMs: number };

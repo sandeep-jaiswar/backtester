@@ -1,7 +1,7 @@
 import { Activity } from "@heroui/shared-icons";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fmtNum, fmtPct } from "@/lib/format";
+import { fmtMoney, fmtNum, fmtPct } from "@/lib/format";
 import type { ResultEvent } from "./use-backtest-stream";
 import { cn } from "@/lib/utils";
 
@@ -13,9 +13,10 @@ interface Props {
   benchmark?: boolean;
   selected?: boolean;
   onSelect?: () => void;
+  currency?: string;
 }
 
-export function StrategyCard({ name, description, result, error, benchmark, selected, onSelect }: Props) {
+export function StrategyCard({ name, description, result, error, benchmark, selected, onSelect, currency }: Props) {
   const m = result?.metrics;
   const tone = m ? (m.totalReturnPct >= 0 ? "text-positive" : "text-negative") : "";
 
@@ -64,11 +65,16 @@ export function StrategyCard({ name, description, result, error, benchmark, sele
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <Stat label="Max drawdown" value={fmtPct(m.maxDrawdownPct)} negative />
               <Stat label="Sharpe" value={fmtNum(m.sharpe)} />
+              <Stat label="Sortino" value={fmtNum(m.sortino)} />
               <Stat label="Volatility" value={`${fmtNum(m.volatilityPct, 1)}%`} />
               <Stat label="Calmar" value={fmtNum(m.calmar)} />
               <Stat label="Trades" value={String(m.tradeCount)} />
               <Stat label="Win rate" value={`${fmtNum(m.winRatePct, 1)}%`} />
-              <Stat label="Profit factor" value={fmtNum(m.profitFactor)} />
+              <Stat
+                label="Profit factor"
+                value={m.profitFactor === null ? "no losses" : fmtNum(m.profitFactor)}
+              />
+              <Stat label="Fees paid" value={fmtMoney(m.totalFeesPaid, currency)} />
               <Stat label="Time in market" value={`${fmtNum(m.exposurePct, 1)}%`} />
             </dl>
           </div>

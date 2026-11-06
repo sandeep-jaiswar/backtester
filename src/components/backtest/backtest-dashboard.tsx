@@ -102,6 +102,7 @@ export function BacktestDashboard() {
               description="Benchmark"
               benchmark
               result={state.results[BENCHMARK_INDEX]}
+              currency={state.currency}
               selected={selected === BENCHMARK_INDEX}
               onSelect={() => setSelected(BENCHMARK_INDEX)}
             />
@@ -114,6 +115,7 @@ export function BacktestDashboard() {
                   description={def?.description}
                   result={state.results[i]}
                   error={state.runErrors[i]}
+                  currency={state.currency}
                   selected={selected === i}
                   onSelect={() => setSelected(i)}
                 />

@@ -28,6 +28,9 @@ export interface BacktestRequestBody {
   capital: number;
   commissionBps: number;
   slippageBps: number;
+  /** Omit to choose by symbol: Indian exchange suffixes get delivery charges. */
+  costProfile?: "flat" | "india-delivery";
+  riskFreeRatePct?: number;
   runs: { strategyId: string; params: Record<string, number> }[];
 }
 
