@@ -56,6 +56,15 @@ Each `manifest` holds every input that affects the result: symbol, dates, datase
 
 Rates live in `src/lib/backtest/costs.ts`. Statutory and exchange rates change, and brokerage varies by broker. Check the table against current circulars before relying on the India profile. The DP charge is a fixed INR amount, so it is not modelled.
 
+## Run history (Neon Postgres)
+
+Every finished run is saved to the `backtest_runs` table, keyed by its manifest `runId`. Saving the same run again is a no-op. The table is created on first use.
+
+- `GET /api/runs?limit=50`: recent runs, newest first, with headline metrics.
+- `GET /api/runs/<runId>`: one run with its manifest, metrics, trades, and equity curve.
+
+Set `DATABASE_URL` to enable this. Without it, backtests still run and the run endpoints return 503. A database error is logged and never fails a backtest.
+
 ## Adding a strategy
 
 Create a file in `src/lib/strategies/` that exports a `Strategy`, then add it to the array in `src/lib/strategies/index.ts`. It appears in the API and the UI automatically.

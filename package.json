@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@heroui/shared-icons": "^2.1.10",
+    "@neondatabase/serverless": "^1.2.0",
     "ag-grid-community": "^36.3.0",
     "ag-grid-react": "^36.3.0",
     "class-variance-authority": "^0.7.1",

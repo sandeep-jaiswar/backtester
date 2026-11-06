@@ -8,6 +8,20 @@ import { costModelFor, defaultCostProfileFor } from "@/lib/backtest/costs";
 import { buildManifest, hashBars } from "@/lib/backtest/manifest";
 import { getStrategy, resolveParams } from "@/lib/strategies";
 import type { Strategy, BacktestConfig } from "@/lib/backtest/types";
+import { isDbConfigured, saveRun, type StoredRunInput } from "@/lib/db/runs";
+
+/**
+ * Saves a finished run when a database is configured. A failure is logged and never fails the
+ * backtest: the client already has its result, and the run can be recomputed from its manifest.
+ */
+async function persist(run: StoredRunInput): Promise<void> {
+  if (!isDbConfigured()) return;
+  try {
+    await saveRun(run);
+  } catch (err) {
+    console.error("Failed to persist backtest run", run.manifest.runId, err);
+  }
+}
 
 /**
  * POST /api/backtest
@@ -100,20 +114,23 @@ export async function POST(req: Request) {
               strategyId: strategy.id,
               params,
             });
+            const metrics = computeMetrics(result, bars.map((b) => b.date), {
+              riskFreeRatePct: input.riskFreeRatePct,
+            });
+            const equity = result.equity.map((v) => Math.round(v * 100) / 100);
             send({
               type: "result",
               index,
               strategyId: strategy.id,
               strategyName: strategy.name,
               params,
-              metrics: computeMetrics(result, bars.map((b) => b.date), {
-                riskFreeRatePct: input.riskFreeRatePct,
-              }),
-              equity: result.equity.map((v) => Math.round(v * 100) / 100),
+              metrics,
+              equity,
               trades: result.trades,
               durationMs: Date.now() - t0,
               manifest,
             });
+            await persist({ manifest, strategyName: strategy.name, metrics, trades: result.trades, equity });
           } catch (err) {
             send({
               type: "error",
