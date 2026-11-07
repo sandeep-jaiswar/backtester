@@ -31,6 +31,10 @@ export interface BacktestRequestBody {
   /** Omit to choose by symbol: Indian exchange suffixes get delivery charges. */
   costProfile?: "flat" | "india-delivery";
   riskFreeRatePct?: number;
+  stopLossPct?: number;
+  takeProfitPct?: number;
+  /** Share of available cash per entry, 0 < x <= 1. */
+  positionFraction?: number;
   runs: { strategyId: string; params: Record<string, number> }[];
 }
 

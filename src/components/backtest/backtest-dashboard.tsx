@@ -9,9 +9,11 @@ import { useBacktestStream, type BacktestRequestBody } from "./use-backtest-stre
 import { BENCHMARK_INDEX } from "@/lib/backtest/stream-events";
 import { BENCHMARK_STRATEGY_ID } from "@/lib/backtest/config";
 import { getStrategy } from "@/lib/strategies";
-import { drawdownSeries } from "@/lib/backtest/metrics";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { AnalyticsPanels } from "./analytics-panels";
+import { downloadReport } from "@/lib/report-xlsx";
 
 export function BacktestDashboard() {
   const { state, run, cancel } = useBacktestStream();
@@ -150,17 +152,40 @@ export function BacktestDashboard() {
           </Card>
         )}
 
-        {tradeSource && <DrawdownNote equity={tradeSource.equity} />}
+        {tradeSource && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Analytics · {tradeSource.strategyName}</CardTitle>
+              <CardDescription>Benchmark comparison, drawdowns and monthly returns for the selected strategy.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    downloadReport({
+                      fileName: `${tradeSource.manifest.runId}-report.xlsx`,
+                      manifest: tradeSource.manifest,
+                      metrics: tradeSource.metrics,
+                      trades: tradeSource.trades,
+                      dates: state.dates,
+                      equity: tradeSource.equity,
+                    })
+                  }
+                >
+                  Excel report
+                </Button>
+              </div>
+              <AnalyticsPanels
+                dates={state.dates.length > 0 ? state.dates : null}
+                equity={tradeSource.equity}
+                metrics={tradeSource.metrics}
+              />
+            </CardContent>
+          </Card>
+        )}
       </section>
     </main>
   );
 }
 
-function DrawdownNote({ equity }: { equity: number[] }) {
-  const worst = useMemo(() => Math.min(0, ...drawdownSeries(equity)), [equity]);
-  return (
-    <p className="text-xs text-muted-foreground">
-      Worst drawdown for the selected strategy: {(worst * 100).toFixed(2)}%. Metrics use bar-close equity and a 0% risk-free rate.
-    </p>
-  );
-}

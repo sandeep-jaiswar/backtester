@@ -60,6 +60,10 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
     Object.fromEntries(selectable.map((s) => [s.id, true])),
   );
   const [params, setParams] = useState(defaultParams);
+  // NaN means "off": the number fields show blank.
+  const [stopLoss, setStopLoss] = useState<number>(Number.NaN);
+  const [takeProfit, setTakeProfit] = useState<number>(Number.NaN);
+  const [positionPct, setPositionPct] = useState<number>(100);
 
   const selectedCount = useMemo(() => Object.values(enabled).filter(Boolean).length, [enabled]);
 
@@ -82,6 +86,9 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
       commissionBps,
       slippageBps,
       costProfile: costChoice === "auto" ? undefined : costChoice,
+      stopLossPct: Number.isFinite(stopLoss) ? stopLoss : undefined,
+      takeProfitPct: Number.isFinite(takeProfit) ? takeProfit : undefined,
+      positionFraction: Number.isFinite(positionPct) && positionPct !== 100 ? positionPct / 100 : undefined,
       runs,
     });
   };
@@ -134,6 +141,22 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
               </select>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Flash className="size-4" /> Risk controls
+          </CardTitle>
+          <CardDescription>
+            Optional, blank means off. Stop and target are measured from the entry fill and checked on each bar&apos;s low and high. If both are hit on one bar, the stop is taken.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <NumberField id="stop-loss" label="Stop-loss %" value={stopLoss} onChange={setStopLoss} min={0.1} max={99} step={0.5} />
+          <NumberField id="take-profit" label="Take-profit %" value={takeProfit} onChange={setTakeProfit} min={0.1} max={1000} step={0.5} />
+          <NumberField id="position-pct" label="Cash per entry %" value={positionPct} onChange={setPositionPct} min={1} max={100} step={5} />
         </CardContent>
       </Card>
 

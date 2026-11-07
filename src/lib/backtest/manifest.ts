@@ -13,6 +13,10 @@ export interface RunInputs {
   costModel: CostModel;
   slippageBps: number;
   riskFreeRatePct: number;
+  /** Protective exits and sizing. Absent when not set, so they do not change the run ID of plain runs. */
+  stopLossPct?: number;
+  takeProfitPct?: number;
+  positionFraction?: number;
   strategyId: string;
   /** Hash of the rule definition for custom strategies. Absent for built-in strategies. */
   strategyDefinitionHash?: string;

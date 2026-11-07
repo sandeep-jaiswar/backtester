@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EquityChart } from "@/components/backtest/equity-chart";
+import { AnalyticsPanels } from "@/components/backtest/analytics-panels";
 import { errorFrom } from "@/components/strategies/use-custom-strategies";
 import { downloadText, toCsv } from "@/lib/csv";
+import { downloadReport } from "@/lib/report-xlsx";
 import { fmtMoney, fmtNum, fmtPct } from "@/lib/format";
 import { readNdjson } from "@/lib/ndjson";
 import type { StoredRun } from "@/lib/backtest/run-types";
@@ -67,6 +69,16 @@ export function RunDetail({ runId }: { runId: string }) {
   const m = run.metrics;
   const m2 = m as typeof m & { sortino?: number };
 
+  const exportReport = () =>
+    downloadReport({
+      fileName: `${run.runId}-report.xlsx`,
+      manifest: run.manifest,
+      metrics: run.metrics,
+      trades: run.trades,
+      dates: run.dates ?? dates,
+      equity: run.equity,
+    });
+
   const exportTrades = () =>
     downloadText(
       `${run.runId}-trades.csv`,
@@ -100,6 +112,7 @@ export function RunDetail({ runId }: { runId: string }) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={exportReport}>Excel report</Button>
           <Button variant="outline" onClick={exportTrades}>Trades CSV</Button>
           <Button variant="outline" onClick={exportEquity}>Equity CSV</Button>
           <Button onClick={() => reproduce(run, setVerdict)} disabled={verdict.kind === "running"}>
@@ -140,6 +153,8 @@ export function RunDetail({ runId }: { runId: string }) {
           />
         </CardContent>
       </Card>
+
+      <AnalyticsPanels dates={run.dates} equity={run.equity} metrics={run.metrics} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -266,6 +281,9 @@ async function reproduce(run: StoredRun, setVerdict: (v: Verdict) => void) {
     slippageBps: m.slippageBps,
     costProfile: m.costProfile as BacktestRequestBody["costProfile"],
     riskFreeRatePct: m.riskFreeRatePct,
+    stopLossPct: m.stopLossPct,
+    takeProfitPct: m.takeProfitPct,
+    positionFraction: m.positionFraction,
     runs: [{ strategyId: m.strategyId, params: m.params }],
   };
   try {

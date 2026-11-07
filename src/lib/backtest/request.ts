@@ -25,6 +25,10 @@ export const requestSchema = z
     /** Omit to pick by symbol: .NS and .BO get Indian delivery charges, everything else gets flat bps. */
     costProfile: z.enum(COST_PROFILES).optional(),
     riskFreeRatePct: z.number().min(0).max(50).default(DEFAULT_BACKTEST.riskFreeRatePct),
+    /** Protective exits and sizing. Omit to leave them off, which keeps the run identical to a plain run. */
+    stopLossPct: z.number().positive().max(99).optional(),
+    takeProfitPct: z.number().positive().max(1000).optional(),
+    positionFraction: z.number().gt(0).max(1).optional(),
     runs: z.array(runSchema).min(1).max(MAX_RUNS_PER_REQUEST),
   })
   .superRefine((v, ctx) => {

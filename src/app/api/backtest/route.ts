@@ -1,6 +1,7 @@
 import { DataError, fetchDailyBarsCached } from "@/lib/market-data/yahoo";
 import { runBacktest } from "@/lib/backtest/engine";
 import { computeMetrics } from "@/lib/backtest/metrics";
+import { benchmarkStats } from "@/lib/backtest/analytics";
 import { requestSchema } from "@/lib/backtest/request";
 import { BENCHMARK_INDEX, type BacktestEvent } from "@/lib/backtest/stream-events";
 import { BENCHMARK_STRATEGY_ID } from "@/lib/backtest/config";
@@ -28,10 +29,10 @@ async function persist(run: StoredRunInput): Promise<void> {
 /**
  * POST /api/backtest
  *
- * Fetches daily bars once (cached per server instance), then runs every requested strategy
- * concurrently and streams each result as NDJSON the moment it finishes. Buy & hold is always
- * included as the benchmark. Every result carries a manifest that reproduces it, and is saved
- * to the run history when a database is configured.
+ * Fetches daily bars once (cached per server instance). Buy & hold runs first, because every other
+ * run is compared with its equity curve. Then the requested strategies run and each result is
+ * streamed as NDJSON when it is ready. Every result carries a manifest that reproduces it, and is
+ * saved to the run history when a database is configured.
  */
 export async function POST(req: Request) {
   let body: unknown;
@@ -67,6 +68,9 @@ export async function POST(req: Request) {
     commissionBps: input.commissionBps,
     slippageBps: input.slippageBps,
     costModel,
+    stopLossPct: input.stopLossPct,
+    takeProfitPct: input.takeProfitPct,
+    positionFraction: input.positionFraction,
   };
 
   const encoder = new TextEncoder();
@@ -98,14 +102,19 @@ export async function POST(req: Request) {
           datasetHash,
         });
 
-        const runOne = async (index: number, strategy: Strategy, rawParams: Record<string, number>) => {
-          // Yield to the event loop so every run starts before any finishes its CPU work.
-          await new Promise((resolve) => setTimeout(resolve, 0));
+        /** Runs one strategy, sends and saves it, and returns its raw equity curve (null on failure). */
+        const runOne = async (
+          index: number,
+          strategy: Strategy,
+          rawParams: Record<string, number>,
+          benchEquity: number[] | null,
+        ): Promise<number[] | null> => {
           const t0 = Date.now();
           try {
             const params = resolveParams(strategy, rawParams);
             const signals = strategy.signals(bars, params);
             const result = runBacktest(bars, signals, config);
+            const isBenchmark = index === BENCHMARK_INDEX;
             const manifest = buildManifest({
               symbol: series.symbol,
               start: input.start,
@@ -116,13 +125,18 @@ export async function POST(req: Request) {
               costModel,
               slippageBps: input.slippageBps,
               riskFreeRatePct: input.riskFreeRatePct,
+              stopLossPct: input.stopLossPct,
+              takeProfitPct: input.takeProfitPct,
+              positionFraction: input.positionFraction,
               strategyId: strategy.id,
               strategyDefinitionHash: strategy.definitionHash,
               params,
             });
-            const metrics = computeMetrics(result, bars.map((b) => b.date), {
-              riskFreeRatePct: input.riskFreeRatePct,
-            });
+            const rf = input.riskFreeRatePct;
+            const metrics = {
+              ...computeMetrics(result, bars.map((b) => b.date), { riskFreeRatePct: rf }),
+              benchmark: isBenchmark || !benchEquity ? null : benchmarkStats(result.equity, benchEquity, rf),
+            };
             const equity = result.equity.map((v) => Math.round(v * 100) / 100);
             // Save before sending, so the run link on the card is valid as soon as it appears.
             await persist({ manifest, strategyName: strategy.name, metrics, trades: result.trades, dates, equity });
@@ -138,20 +152,22 @@ export async function POST(req: Request) {
               durationMs: Date.now() - t0,
               manifest,
             });
+            return result.equity;
           } catch (err) {
             send({
               type: "error",
               index,
               message: err instanceof Error ? err.message : "Strategy failed",
             });
+            return null;
           }
         };
 
         const benchmark = (await resolveStrategy(BENCHMARK_STRATEGY_ID))!;
-        await Promise.all([
-          runOne(BENCHMARK_INDEX, benchmark, {}),
-          ...resolved.map(({ run, strategy }, i) => runOne(i, strategy, run.params)),
-        ]);
+        const benchEquity = await runOne(BENCHMARK_INDEX, benchmark, {}, null);
+        await Promise.all(
+          resolved.map(({ run, strategy }, i) => runOne(i, strategy, run.params, benchEquity)),
+        );
 
         send({ type: "done", elapsedMs: Date.now() - started });
       } catch (err) {

@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import type { Trade } from "@/lib/backtest/types";
+import type { ExitReason, Trade } from "@/lib/backtest/types";
 import { fmtPct } from "@/lib/format";
 
 // AG Grid Community v33+ requires explicit module registration.
@@ -15,6 +15,13 @@ const theme = themeQuartz.withParams({
   fontSize: 13,
   headerFontWeight: 600,
 });
+
+const EXIT_LABELS: Record<ExitReason, string> = {
+  signal: "Signal",
+  stop: "Stop-loss",
+  target: "Take-profit",
+  end: "Period end",
+};
 
 const columnDefs: ColDef<Trade>[] = [
   { field: "entryDate", headerName: "Entry", width: 120 },
@@ -37,6 +44,12 @@ const columnDefs: ColDef<Trade>[] = [
     cellClassRules: { "text-positive": (p) => (p.value ?? 0) > 0, "text-negative": (p) => (p.value ?? 0) < 0 },
   },
   { field: "barsHeld", headerName: "Bars held", type: "numericColumn" },
+  {
+    field: "exitReason",
+    headerName: "Exit reason",
+    width: 130,
+    valueFormatter: (p) => (p.value ? EXIT_LABELS[p.value as ExitReason] : "—"),
+  },
   {
     field: "openAtEnd",
     headerName: "Status",

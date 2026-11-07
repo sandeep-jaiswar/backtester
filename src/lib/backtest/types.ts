@@ -55,7 +55,16 @@ export interface BacktestConfig {
   slippageBps: number;
   /** Explicit fee schedule. Overrides `commissionBps` when present. */
   costModel?: CostModel;
+  /** Stop-loss, in percent below the entry fill. Omit to disable. */
+  stopLossPct?: number;
+  /** Take-profit, in percent above the entry fill. Omit to disable. */
+  takeProfitPct?: number;
+  /** Share of available cash spent on each entry, in (0, 1]. Omit for all-in (1). */
+  positionFraction?: number;
 }
+
+/** Why a position was closed. */
+export type ExitReason = "signal" | "stop" | "target" | "end";
 
 export interface Trade {
   entryDate: string;
@@ -70,6 +79,8 @@ export interface Trade {
   fees: number;
   /** True if the position was still open on the last bar and was marked to market. */
   openAtEnd: boolean;
+  /** Absent on runs saved before exit reasons were recorded. */
+  exitReason?: ExitReason;
 }
 
 export interface EngineResult {
@@ -101,4 +112,20 @@ export interface Metrics {
   totalFeesPaid: number;
   avgBarsHeld: number;
   exposurePct: number;
+  /** Comparison with the buy-and-hold benchmark on the same bars. Absent when there is no benchmark. */
+  benchmark?: BenchmarkStats | null;
+}
+
+export interface BenchmarkStats {
+  /** Annualised CAPM alpha in percent, using the risk-free rate. Arithmetic annualisation (daily x 252). */
+  alphaPct: number;
+  beta: number;
+  /** Mean daily active return / tracking error, annualised. */
+  informationRatio: number;
+  /** Annualised standard deviation of daily active returns, in percent. */
+  trackingErrorPct: number;
+  /** Mean strategy return on benchmark-up days relative to the benchmark's, in percent. Null if no up days. */
+  upCapturePct: number | null;
+  /** Same as upCapturePct, over benchmark-down days. */
+  downCapturePct: number | null;
 }
