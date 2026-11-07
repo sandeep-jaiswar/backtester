@@ -174,8 +174,8 @@ export function OptimizeView() {
   const currency = /\.(NS|BO)$/.test(symbol.trim().toUpperCase()) ? "INR" : "USD";
 
   return (
-    <main className="mx-auto grid max-w-7xl gap-6 p-4 md:p-6 lg:grid-cols-[400px_1fr]">
-      <aside className="grid content-start gap-4 lg:sticky lg:top-6 lg:self-start">
+    <main className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)] gap-6 p-4 md:p-6 lg:grid-cols-[400px_minmax(0,1fr)]">
+      <aside className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:self-start lg:overflow-y-auto">
         <div className="grid gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">Optimise</h1>
           <p className="text-sm text-muted-foreground">
@@ -289,7 +289,7 @@ export function OptimizeView() {
         </div>
       </aside>
 
-      <section className="grid min-w-0 content-start gap-6">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-6">
         {error ? (
           <Card className="border-negative/50" role="alert">
             <CardContent>
@@ -340,7 +340,7 @@ function Results({ ev, currency, metric }: { ev: Extract<OptimizeEvent, { type: 
         </Card>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Best parameters</CardTitle>

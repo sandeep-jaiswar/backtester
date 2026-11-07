@@ -141,8 +141,8 @@ export function StrategyBuilder() {
   };
 
   return (
-    <main className="mx-auto grid max-w-7xl gap-6 p-4 md:p-6 lg:grid-cols-[280px_1fr]">
-      <aside className="grid content-start gap-4">
+    <main className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)] gap-6 p-4 md:p-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4">
         <div className="grid gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">Strategies</h1>
           <p className="text-sm text-muted-foreground">Build rule-based strategies without code.</p>
@@ -185,7 +185,7 @@ export function StrategyBuilder() {
         </Link>
       </aside>
 
-      <section className="grid min-w-0 content-start gap-6">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-6">
         {!draft ? (
           <Card>
             <CardHeader>
@@ -205,7 +205,7 @@ export function StrategyBuilder() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="grid gap-2">
                     <Label htmlFor="strategy-name">Name</Label>
                     <Input id="strategy-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} maxLength={60} />

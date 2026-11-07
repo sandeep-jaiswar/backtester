@@ -57,8 +57,8 @@ export function BacktestDashboard() {
   }, [selected, state.results, runs]);
 
   return (
-    <main className="mx-auto grid max-w-7xl gap-6 p-4 md:p-6 lg:grid-cols-[400px_1fr]">
-      <aside className={cn("lg:sticky lg:top-6 lg:self-start", !formOpen && "hidden lg:block")}>
+    <main className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)] gap-6 p-4 md:p-6 lg:grid-cols-[400px_minmax(0,1fr)]">
+      <aside className={cn("lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:self-start lg:overflow-y-auto", !formOpen && "hidden lg:block")}>
         <div className="mb-6 grid gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">Backtester</h1>
           <p className="text-sm text-muted-foreground">
@@ -68,7 +68,7 @@ export function BacktestDashboard() {
         <BacktestForm running={running} onRun={submit} onCancel={cancel} />
       </aside>
 
-      <section className="grid min-w-0 content-start gap-6">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-6">
         {!formOpen && state.dates.length > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm lg:hidden">
             <span className="text-muted-foreground">
@@ -120,7 +120,7 @@ export function BacktestDashboard() {
         )}
 
         {state.dates.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <StrategyCard
               name={getStrategy(BENCHMARK_STRATEGY_ID)?.name ?? "Benchmark"}
               description="Benchmark"

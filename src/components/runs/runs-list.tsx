@@ -44,7 +44,7 @@ export function RunsList() {
     });
 
   return (
-    <main className="mx-auto grid max-w-7xl gap-6 p-4 md:p-6">
+    <main className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)] gap-6 p-4 md:p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="grid gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">Run history</h1>

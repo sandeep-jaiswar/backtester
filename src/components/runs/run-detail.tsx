@@ -99,7 +99,7 @@ export function RunDetail({ runId }: { runId: string }) {
     );
 
   return (
-    <main className="mx-auto grid max-w-7xl gap-6 p-4 md:p-6">
+    <main className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)] gap-6 p-4 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="grid gap-2">
           <Link href="/runs" className="text-sm text-muted-foreground underline underline-offset-4">
@@ -127,7 +127,7 @@ export function RunDetail({ runId }: { runId: string }) {
 
       <VerdictBanner verdict={verdict} runId={run.runId} />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Total return" value={fmtPct(m.totalReturnPct)} tone={m.totalReturnPct >= 0 ? "pos" : "neg"} />
         <Stat label="CAGR" value={fmtPct(m.cagrPct)} />
         <Stat term="maxDrawdown" label="Max drawdown" value={fmtPct(m.maxDrawdownPct)} tone="neg" />
@@ -171,7 +171,7 @@ export function RunDetail({ runId }: { runId: string }) {
 
       <AnalyticsPanels dates={run.dates} equity={run.equity} metrics={run.metrics} />
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Reproducibility</CardTitle>

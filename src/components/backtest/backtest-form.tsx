@@ -105,7 +105,7 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
   };
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-6">
+    <form noValidate onSubmit={submit} className="flex flex-col gap-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -138,13 +138,13 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
             <NumberField id="capital" label="Capital" value={capital} onChange={setCapital} min={1} step={1000} />
             <NumberField id="commission" label="Commission bps" value={commissionBps} onChange={setCommissionBps} min={0} max={500} step={1} />
             <NumberField id="slippage" label="Slippage bps" value={slippageBps} onChange={setSlippageBps} min={0} max={500} step={1} />
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               <Label htmlFor="cost-profile">Cost profile</Label>
               <select
                 id="cost-profile"
                 value={costChoice}
                 onChange={(e) => setCostChoice(e.target.value as typeof costChoice)}
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                className="h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm"
               >
                 <option value="auto">Auto (by symbol)</option>
                 <option value="flat">Flat bps</option>
