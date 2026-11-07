@@ -8,6 +8,8 @@ import { TradesGrid } from "./trades-grid";
 import { useBacktestStream, type BacktestRequestBody } from "./use-backtest-stream";
 import { BENCHMARK_INDEX } from "@/lib/backtest/stream-events";
 import { BENCHMARK_STRATEGY_ID } from "@/lib/backtest/config";
+import { verdict } from "@/lib/backtest/verdict";
+import { cn } from "@/lib/utils";
 import { getStrategy } from "@/lib/strategies";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +21,8 @@ export function BacktestDashboard() {
   const { state, run, cancel } = useBacktestStream();
   const [runs, setRuns] = useState<BacktestRequestBody["runs"]>([]);
   const [selected, setSelected] = useState<number | null>(null);
+  // On small screens the settings form collapses once a run starts, so results come first.
+  const [formOpen, setFormOpen] = useState(true);
 
   const running = state.status === "running";
   const settled = Object.keys(state.results).length + Object.keys(state.runErrors).length;
@@ -27,6 +31,7 @@ export function BacktestDashboard() {
   const submit = (body: BacktestRequestBody) => {
     setRuns(body.runs);
     setSelected(null);
+    setFormOpen(false);
     run(body);
   };
 
@@ -53,7 +58,7 @@ export function BacktestDashboard() {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-6 p-4 md:p-6 lg:grid-cols-[400px_1fr]">
-      <aside className="lg:sticky lg:top-6 lg:self-start">
+      <aside className={cn("lg:sticky lg:top-6 lg:self-start", !formOpen && "hidden lg:block")}>
         <div className="mb-6 grid gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">Backtester</h1>
           <p className="text-sm text-muted-foreground">
@@ -64,8 +69,25 @@ export function BacktestDashboard() {
       </aside>
 
       <section className="grid min-w-0 content-start gap-6">
+        {!formOpen && state.dates.length > 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm lg:hidden">
+            <span className="text-muted-foreground">
+              {state.symbol} · {state.dates[0]} → {state.dates[state.dates.length - 1]} · {runs.length}{" "}
+              {runs.length === 1 ? "strategy" : "strategies"}
+            </span>
+            {running ? (
+              <Button variant="outline" size="sm" onClick={cancel}>
+                Cancel
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setFormOpen(true)}>
+                Edit settings
+              </Button>
+            )}
+          </div>
+        ) : null}
         {state.status === "error" && state.error ? (
-          <Card className="border-negative/50">
+          <Card className="border-negative/50" role="alert">
             <CardContent>
               <p className="text-sm text-negative">{state.error}</p>
             </CardContent>
@@ -83,7 +105,7 @@ export function BacktestDashboard() {
         )}
 
         {state.status !== "idle" && (
-          <div className="flex flex-wrap items-center gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm" role="status" aria-live="polite">
             {state.symbol ? <Badge>{state.symbol}</Badge> : null}
             {state.barCount ? <Badge variant="outline">{state.barCount} daily bars</Badge> : null}
             {state.currency ? <Badge variant="outline">{state.currency}</Badge> : null}
@@ -118,6 +140,7 @@ export function BacktestDashboard() {
                   result={state.results[i]}
                   error={state.runErrors[i]}
                   currency={state.currency}
+                  verdict={state.results[i] ? verdict(state.results[i].metrics, state.results[BENCHMARK_INDEX]?.metrics) : undefined}
                   selected={selected === i}
                   onSelect={() => setSelected(i)}
                 />

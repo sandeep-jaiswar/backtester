@@ -1,5 +1,8 @@
 "use client";
 
+import { NumberField } from "@/components/ui/number-field";
+import { hasBlankNumber } from "@/lib/number-rules";
+
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -95,6 +98,10 @@ export function StrategyBuilder() {
 
   const save = async () => {
     if (!draft) return;
+    if (hasBlankNumber(draft)) {
+      setMessage({ kind: "error", text: "Fill in every number field before saving." });
+      return;
+    }
     setSaving(true);
     setMessage(null);
     const body = {
@@ -255,8 +262,11 @@ export function StrategyBuilder() {
               <p className={message.kind === "ok" ? "text-sm text-positive" : "text-sm text-negative"}>{message.text}</p>
             ) : null}
 
+            {draft && hasBlankNumber(draft) ? (
+              <p className="text-sm text-muted-foreground">Fill in every number field to save.</p>
+            ) : null}
             <div className="flex flex-wrap gap-2">
-              <Button onClick={save} disabled={saving}>
+              <Button onClick={save} disabled={saving || (!!draft && hasBlankNumber(draft))}>
                 {saving ? "Saving…" : draft.id ? "Save changes" : "Save strategy"}
               </Button>
               {draft.id ? (
@@ -282,10 +292,5 @@ function LabeledInput({ label, value, onChange }: { label: string; value: string
 }
 
 function LabeledNumber({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
-  return (
-    <label className="grid gap-1 text-xs text-muted-foreground">
-      {label}
-      <Input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} className="h-9 text-foreground" />
-    </label>
-  );
+  return <NumberField label={label} value={value} onChange={onChange} />;
 }

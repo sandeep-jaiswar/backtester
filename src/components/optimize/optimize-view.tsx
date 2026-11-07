@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { NumberField } from "@/components/ui/number-field";
+import { numberProblem } from "@/lib/number-rules";
 import { EquityChart } from "@/components/backtest/equity-chart";
 import { errorFrom, useCustomStrategies } from "@/components/strategies/use-custom-strategies";
 import { DEFAULT_BACKTEST, BENCHMARK_STRATEGY_ID } from "@/lib/backtest/config";
@@ -101,6 +102,20 @@ export function OptimizeView() {
             ? `The grid has ${combos.toLocaleString("en-US")} combinations. The limit is ${MAX_GRID_COMBOS}. Narrow a range or widen a step.`
             : null;
 
+  const numberIssue =
+    [
+      numberProblem(capital, { min: 1 }),
+      numberProblem(commissionBps, { min: 0, max: 500 }),
+      numberProblem(slippageBps, { min: 0, max: 500 }),
+      numberProblem(riskFreeRatePct, { min: 0, max: 50 }),
+      validation === "split" ? numberProblem(trainFraction, { min: 0.3, max: 0.9 }) : null,
+      validation === "walkForward" ? numberProblem(folds, { min: 2, max: 10, integer: true }) : null,
+    ].find((p) => p !== null) ?? null;
+
+  const blockReason = !strategy
+    ? "Choose a strategy to run."
+    : gridError ?? (numberIssue ? "Fix the highlighted fields to run." : null);
+
   const setAxis = (key: string, patch: Partial<AxisState>) => {
     if (!strategy) return;
     setOverrides((prev) => ({
@@ -110,7 +125,7 @@ export function OptimizeView() {
   };
 
   const run = async () => {
-    if (!strategy || gridError) return;
+    if (!strategy || gridError || numberIssue) return;
     setRunning(true);
     setError(null);
     setOutput(null);
@@ -175,12 +190,12 @@ export function OptimizeView() {
           <CardContent className="grid gap-3">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Symbol"><Input value={symbol} onChange={(e) => setSymbol(e.target.value)} /></Field>
-              <Field label="Capital"><Input type="number" value={capital} onChange={(e) => setCapital(Number(e.target.value))} /></Field>
+              <NumberField label="Capital" value={capital} onChange={setCapital} min={1} step={1000} />
               <Field label="Start"><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
               <Field label="End (blank = today)"><Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></Field>
-              <Field label="Commission bps"><Input type="number" value={commissionBps} onChange={(e) => setCommissionBps(Number(e.target.value))} /></Field>
-              <Field label="Slippage bps"><Input type="number" value={slippageBps} onChange={(e) => setSlippageBps(Number(e.target.value))} /></Field>
-              <Field label="Risk-free %"><Input type="number" value={riskFreeRatePct} onChange={(e) => setRiskFreeRatePct(Number(e.target.value))} /></Field>
+              <NumberField label="Commission bps" value={commissionBps} onChange={setCommissionBps} min={0} max={500} />
+              <NumberField label="Slippage bps" value={slippageBps} onChange={setSlippageBps} min={0} max={500} />
+              <NumberField label="Risk-free %" value={riskFreeRatePct} onChange={setRiskFreeRatePct} min={0} max={50} />
               <Field label="Rank by">
                 <select value={metric} onChange={(e) => setMetric(e.target.value as OptimizeMetric)} className="h-9 rounded-md border border-input bg-transparent px-2 text-sm">
                   {OPTIMIZE_METRICS.map((m) => (
@@ -218,9 +233,9 @@ export function OptimizeView() {
                   </label>
                   {a.enabled && (
                     <div className="grid grid-cols-3 gap-2">
-                      <Field label="Min"><Input type="number" value={a.min} onChange={(e) => setAxis(p.key, { min: Number(e.target.value) })} /></Field>
-                      <Field label="Max"><Input type="number" value={a.max} onChange={(e) => setAxis(p.key, { max: Number(e.target.value) })} /></Field>
-                      <Field label="Step"><Input type="number" value={a.step} onChange={(e) => setAxis(p.key, { step: Number(e.target.value) })} /></Field>
+                      <NumberField label="Min" value={a.min} onChange={(v) => setAxis(p.key, { min: v })} />
+                      <NumberField label="Max" value={a.max} onChange={(v) => setAxis(p.key, { max: v })} />
+                      <NumberField label="Step" value={a.step} onChange={(v) => setAxis(p.key, { step: v })} />
                     </div>
                   )}
                 </div>
@@ -247,24 +262,21 @@ export function OptimizeView() {
               </select>
             </Field>
             {validation === "split" && (
-              <Field label="Train fraction (0.3–0.9)">
-                <Input type="number" step={0.05} min={0.3} max={0.9} value={trainFraction} onChange={(e) => setTrainFraction(Number(e.target.value))} />
-              </Field>
+              <NumberField label="Train fraction (0.3–0.9)" value={trainFraction} onChange={setTrainFraction} min={0.3} max={0.9} step={0.05} />
             )}
             {validation === "walkForward" && (
-              <Field label="Folds (2–10)">
-                <Input type="number" min={2} max={10} value={folds} onChange={(e) => setFolds(Number(e.target.value))} />
-              </Field>
+              <NumberField label="Folds (2–10)" value={folds} onChange={setFolds} min={2} max={10} integer />
             )}
           </CardContent>
         </Card>
 
         <div className="grid gap-2">
-          <Button onClick={run} disabled={running || !!gridError || !strategy}>
+          <Button onClick={run} disabled={running || !!gridError || !!numberIssue || !strategy}>
             {running ? "Optimising…" : "Run optimisation"}
           </Button>
+          {!running && blockReason ? <p className="text-sm text-muted-foreground">{blockReason}</p> : null}
           {progress && running ? (
-            <div className="grid gap-1">
+            <div className="grid gap-1" role="status" aria-live="polite">
               <div className="h-2 w-full overflow-hidden rounded bg-muted">
                 <div className="h-full bg-primary transition-all" style={{ width: `${progress.total ? (100 * progress.done) / progress.total : 0}%` }} />
               </div>
@@ -279,7 +291,7 @@ export function OptimizeView() {
 
       <section className="grid min-w-0 content-start gap-6">
         {error ? (
-          <Card className="border-negative/50">
+          <Card className="border-negative/50" role="alert">
             <CardContent>
               <p className="text-sm text-negative">{error}</p>
             </CardContent>
@@ -467,11 +479,12 @@ function StatLine({ label, stats }: { label: string; stats: Stats }) {
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  // Wrapping the input in the label links them, so clicking the label focuses the input.
   return (
-    <div className="grid gap-2">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+    <label className="grid gap-2">
+      <span className="text-xs text-muted-foreground">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 

@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { NumberField } from "@/components/ui/number-field";
+import { numberProblem } from "@/lib/number-rules";
 import { strategies } from "@/lib/strategies";
 import type { BacktestRequestBody } from "./use-backtest-stream";
 import { useCustomStrategies } from "@/components/strategies/use-custom-strategies";
@@ -67,6 +69,14 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
 
   const selectedCount = useMemo(() => Object.values(enabled).filter(Boolean).length, [enabled]);
 
+  const formProblem =
+    numberProblem(capital, { min: 1 }) ??
+    numberProblem(commissionBps, { min: 0, max: 500 }) ??
+    numberProblem(slippageBps, { min: 0, max: 500 }) ??
+    numberProblem(stopLoss, { min: 0.1, max: 99, optional: true }) ??
+    numberProblem(takeProfit, { min: 0.1, max: 1000, optional: true }) ??
+    numberProblem(positionPct, { min: 1, max: 100 });
+
   const setParam = (strategyId: string, key: string, value: number) =>
     setParams((prev) => ({
       ...prev,
@@ -75,6 +85,7 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (selectedCount === 0 || formProblem) return;
     const runs = selectable
       .filter((s) => enabled[s.id])
       .map((s) => ({ strategyId: s.id, params: params[s.id] ?? defaultsFor(s.id) }));
@@ -124,9 +135,9 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <NumberField id="capital" label="Capital" value={capital} onChange={setCapital} step={1000} />
-            <NumberField id="commission" label="Commission bps" value={commissionBps} onChange={setCommissionBps} step={1} />
-            <NumberField id="slippage" label="Slippage bps" value={slippageBps} onChange={setSlippageBps} step={1} />
+            <NumberField id="capital" label="Capital" value={capital} onChange={setCapital} min={1} step={1000} />
+            <NumberField id="commission" label="Commission bps" value={commissionBps} onChange={setCommissionBps} min={0} max={500} step={1} />
+            <NumberField id="slippage" label="Slippage bps" value={slippageBps} onChange={setSlippageBps} min={0} max={500} step={1} />
             <div className="grid gap-2">
               <Label htmlFor="cost-profile">Cost profile</Label>
               <select
@@ -154,8 +165,8 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <NumberField id="stop-loss" label="Stop-loss %" value={stopLoss} onChange={setStopLoss} min={0.1} max={99} step={0.5} />
-          <NumberField id="take-profit" label="Take-profit %" value={takeProfit} onChange={setTakeProfit} min={0.1} max={1000} step={0.5} />
+          <NumberField id="stop-loss" label="Stop-loss %" value={stopLoss} onChange={setStopLoss} min={0.1} max={99} step={0.5} optional />
+          <NumberField id="take-profit" label="Take-profit %" value={takeProfit} onChange={setTakeProfit} min={0.1} max={1000} step={0.5} optional />
           <NumberField id="position-pct" label="Cash per entry %" value={positionPct} onChange={setPositionPct} min={1} max={100} step={5} />
         </CardContent>
       </Card>
@@ -209,13 +220,18 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
         </CardContent>
       </Card>
 
+      {!running && (selectedCount === 0 || formProblem) ? (
+        <p className="text-sm text-muted-foreground">
+          {selectedCount === 0 ? "Select at least one strategy to run." : "Fix the highlighted fields to run."}
+        </p>
+      ) : null}
       <div className="flex gap-2">
         {running ? (
           <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>
             Cancel
           </Button>
         ) : (
-          <Button type="submit" className="flex-1" disabled={selectedCount === 0}>
+          <Button type="submit" className="flex-1" disabled={selectedCount === 0 || formProblem !== null}>
             <Flash className="size-4" />
             Run {selectedCount} {selectedCount === 1 ? "strategy" : "strategies"}
           </Button>
@@ -228,35 +244,3 @@ export function BacktestForm({ running, onRun, onCancel }: Props) {
   );
 }
 
-function NumberField({
-  id,
-  label,
-  value,
-  onChange,
-  min,
-  max,
-  step,
-}: {
-  id: string;
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-}) {
-  return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        type="number"
-        value={Number.isFinite(value) ? value : ""}
-        min={min}
-        max={max}
-        step={step}
-        onChange={(e) => onChange(e.target.valueAsNumber)}
-      />
-    </div>
-  );
-}

@@ -157,8 +157,8 @@ function OperandField({
         <Input
           aria-label={`${label} value`}
           type="number"
-          value={operand.value}
-          onChange={(e) => onChange({ type: "number", value: Number(e.target.value) })}
+          value={Number.isFinite(operand.value) ? operand.value : ""}
+          onChange={(e) => onChange({ type: "number", value: e.target.valueAsNumber })}
           className="h-9 w-28"
         />
       )}
@@ -231,8 +231,8 @@ function PeriodField({
           type="number"
           min={2}
           max={400}
-          value={operand.period ?? 14}
-          onChange={(e) => onChange({ type: "indicator", name: operand.name, period: Number(e.target.value) })}
+          value={Number.isFinite(operand.period ?? 14) ? (operand.period ?? 14) : ""}
+          onChange={(e) => onChange({ type: "indicator", name: operand.name, period: e.target.valueAsNumber })}
           className="h-9 w-20"
         />
       )}

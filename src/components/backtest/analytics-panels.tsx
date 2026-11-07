@@ -7,6 +7,8 @@ import { drawdownEpisodes, monthlyReturns } from "@/lib/backtest/analytics";
 import { drawdownSeries } from "@/lib/backtest/metrics";
 import type { Metrics } from "@/lib/backtest/types";
 import { fmtNum, fmtPct } from "@/lib/format";
+import { Term } from "@/components/ui/term";
+import type { GlossaryKey } from "@/lib/glossary";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -31,12 +33,12 @@ export function AnalyticsPanels({ dates, equity, metrics }: Props) {
             </CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-            <Tile label="Alpha (ann.)" value={fmtPct(bench.alphaPct)} tone={bench.alphaPct >= 0 ? "pos" : "neg"} />
-            <Tile label="Beta" value={fmtNum(bench.beta, 2)} />
-            <Tile label="Information ratio" value={fmtNum(bench.informationRatio)} />
-            <Tile label="Tracking error" value={fmtPct(bench.trackingErrorPct)} />
-            <Tile label="Up capture" value={bench.upCapturePct === null ? "—" : `${fmtNum(bench.upCapturePct, 1)}%`} />
-            <Tile label="Down capture" value={bench.downCapturePct === null ? "—" : `${fmtNum(bench.downCapturePct, 1)}%`} />
+            <Tile term="alpha" label="Alpha (ann.)" value={fmtPct(bench.alphaPct)} tone={bench.alphaPct >= 0 ? "pos" : "neg"} />
+            <Tile term="beta" label="Beta" value={fmtNum(bench.beta, 2)} />
+            <Tile term="informationRatio" label="Information ratio" value={fmtNum(bench.informationRatio)} />
+            <Tile term="trackingError" label="Tracking error" value={fmtPct(bench.trackingErrorPct)} />
+            <Tile term="upCapture" label="Up capture" value={bench.upCapturePct === null ? "—" : `${fmtNum(bench.upCapturePct, 1)}%`} />
+            <Tile term="downCapture" label="Down capture" value={bench.downCapturePct === null ? "—" : `${fmtNum(bench.downCapturePct, 1)}%`} />
           </CardContent>
         </Card>
       ) : null}
@@ -193,10 +195,10 @@ function heatStyle(r: number | undefined): React.CSSProperties {
   return { backgroundColor: `color-mix(in oklch, ${colour} ${strength}%, transparent)` };
 }
 
-function Tile({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
+function Tile({ label, term, value, tone }: { label: string; term?: GlossaryKey; value: string; tone?: "pos" | "neg" }) {
   return (
     <div className="grid gap-1 rounded-lg border p-3">
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-xs text-muted-foreground">{term ? <Term id={term}>{label}</Term> : label}</span>
       <span className={tone === "pos" ? "font-semibold text-positive" : tone === "neg" ? "font-semibold text-negative" : "font-semibold"}>
         {value}
       </span>

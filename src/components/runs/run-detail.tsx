@@ -11,6 +11,9 @@ import { errorFrom } from "@/components/strategies/use-custom-strategies";
 import { downloadText, toCsv } from "@/lib/csv";
 import { downloadReport } from "@/lib/report-xlsx";
 import { fmtMoney, fmtNum, fmtPct } from "@/lib/format";
+import { verdict as summarise } from "@/lib/backtest/verdict";
+import { Term } from "@/components/ui/term";
+import type { GlossaryKey } from "@/lib/glossary";
 import { readNdjson } from "@/lib/ndjson";
 import type { StoredRun } from "@/lib/backtest/run-types";
 import type { BacktestEvent } from "@/lib/backtest/stream-events";
@@ -68,6 +71,7 @@ export function RunDetail({ runId }: { runId: string }) {
 
   const m = run.metrics;
   const m2 = m as typeof m & { sortino?: number };
+  const runVerdict = summarise(m, null);
 
   const exportReport = () =>
     downloadReport({
@@ -126,17 +130,28 @@ export function RunDetail({ runId }: { runId: string }) {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Total return" value={fmtPct(m.totalReturnPct)} tone={m.totalReturnPct >= 0 ? "pos" : "neg"} />
         <Stat label="CAGR" value={fmtPct(m.cagrPct)} />
-        <Stat label="Max drawdown" value={fmtPct(m.maxDrawdownPct)} tone="neg" />
-        <Stat label="Sharpe" value={fmtNum(m.sharpe)} />
-        <Stat label="Sortino" value={m2.sortino !== undefined ? fmtNum(m2.sortino) : "—"} />
-        <Stat label="Calmar" value={fmtNum(m.calmar)} />
+        <Stat term="maxDrawdown" label="Max drawdown" value={fmtPct(m.maxDrawdownPct)} tone="neg" />
+        <Stat term="sharpe" label="Sharpe" value={fmtNum(m.sharpe)} />
+        <Stat term="sortino" label="Sortino" value={m2.sortino !== undefined ? fmtNum(m2.sortino) : "—"} />
+        <Stat term="calmar" label="Calmar" value={fmtNum(m.calmar)} />
         <Stat label="Trades" value={String(m.tradeCount)} />
-        <Stat label="Win rate" value={`${fmtNum(m.winRatePct, 1)}%`} />
-        <Stat label="Profit factor" value={m.profitFactor === null ? "no losses" : fmtNum(m.profitFactor)} />
+        <Stat term="winRate" label="Win rate" value={`${fmtNum(m.winRatePct, 1)}%`} />
+        <Stat term="profitFactor" label="Profit factor" value={m.profitFactor === null ? "no losses" : fmtNum(m.profitFactor)} />
         <Stat label="Fees paid" value={fmtMoney(m.totalFeesPaid, currency)} />
-        <Stat label="Time in market" value={`${fmtNum(m.exposurePct, 1)}%`} />
+        <Stat term="exposure" label="Time in market" value={`${fmtNum(m.exposurePct, 1)}%`} />
         <Stat label="Final value" value={fmtMoney(m.endValue, currency)} />
       </div>
+
+      <Card>
+        <CardContent className="grid gap-2 text-sm">
+          <p>{runVerdict.headline}</p>
+          {runVerdict.caveats.map((c) => (
+            <p key={c} className="text-xs text-muted-foreground">
+              {c}
+            </p>
+          ))}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -229,11 +244,11 @@ export function RunDetail({ runId }: { runId: string }) {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
+function Stat({ label, term, value, tone }: { label: string; term?: GlossaryKey; value: string; tone?: "pos" | "neg" }) {
   return (
     <Card className="gap-1 py-4">
       <CardContent className="grid gap-1">
-        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className="text-xs text-muted-foreground">{term ? <Term id={term}>{label}</Term> : label}</span>
         <span className={cn("text-lg font-semibold tabular-nums", tone === "pos" && "text-positive", tone === "neg" && "text-negative")}>
           {value}
         </span>
